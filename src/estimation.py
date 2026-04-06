@@ -43,21 +43,24 @@ def estimate_parameters_ls(t, I_obs, S0, I0, R0, beta_init=0.2, gamma_init=0.2):
         "result": result
     }
 
-def negative_log_likelihood(params, t, I_obs, S0, I0, R0, sigma=10):
-    beta, gamma = params
-
+def log_likelihood_gaussian(beta, gamma, t, I_obs, S0, I0, R0, sigma=10.0):
     if beta <= 0 or gamma <= 0:
-        return 1e10
+        return -np.inf
 
     _, I_model, _ = solve_sir(beta, gamma, S0, I0, R0, t)
-
     residuals = I_obs - I_model
 
-    nll = 0.5 * np.sum((residuals / sigma)**2 + np.log(2 * np.pi * sigma**2))
+    ll = -0.5 * np.sum((residuals / sigma) ** 2 + np.log(2 * np.pi * sigma**2))
+    return ll
 
-    return nll
 
-def estimate_parameters_mle(t, I_obs, S0, I0, R0, sigma=10,
+def negative_log_likelihood(params, t, I_obs, S0, I0, R0, sigma=10.0):
+    beta, gamma = params
+    ll = log_likelihood_gaussian(beta, gamma, t, I_obs, S0, I0, R0, sigma)
+    return -ll if np.isfinite(ll) else 1e10
+
+
+def estimate_parameters_mle(t, I_obs, S0, I0, R0, sigma=10.0,
                             beta_init=0.2, gamma_init=0.2):
 
     initial_guess = np.array([beta_init, gamma_init])
@@ -86,17 +89,6 @@ def log_prior_uniform(beta, gamma, beta_min=0.0, beta_max=1.0, gamma_min=0.0, ga
     if beta_min <= beta <= beta_max and gamma_min <= gamma <= gamma_max:
         return 0.0
     return -np.inf
-
-
-def log_likelihood_gaussian(beta, gamma, t, I_obs, S0, I0, R0, sigma=10.0):
-    if beta <= 0 or gamma <= 0:
-        return -np.inf
-
-    _, I_model, _ = solve_sir(beta, gamma, S0, I0, R0, t)
-    residuals = I_obs - I_model
-
-    ll = -0.5 * np.sum((residuals / sigma) ** 2 + np.log(2 * np.pi * sigma**2))
-    return ll
 
 
 def log_posterior(
